@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from typing import Literal
-from reusable.webscrapper import scrape_any_site_selenium
+from practice.reusable.webscrapper import scrape_any_site_selenium
 
 load_dotenv()
 

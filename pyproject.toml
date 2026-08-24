@@ -51,4 +51,5 @@ dependencies = [
     "groq>=0.33.0",
     "xgboost>=3.1.1",
     "webdriver-manager>=4.1.2",
+    "selenium>=4.47.0",
 ]

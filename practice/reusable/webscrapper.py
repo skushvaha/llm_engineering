@@ -35,6 +35,15 @@ def clean_and_convert_to_markdown(html_content):
     content = re.sub(r'\n{3,}', '\n\n', content)
     return content.strip()
 
+
+def scrape_url(html_content):
+    links = []
+    soup = BeautifulSoup(html_content, "html.parser")
+    for el in soup.find_all("a", href=True):
+        links.append(el['href'].strip())
+    return links
+
+
 def scrape_any_site_selenium(url, output_file="ai_input_data.txt"):
     print("🚀 Configuring headless browser environment...")
     
@@ -61,6 +70,8 @@ def scrape_any_site_selenium(url, output_file="ai_input_data.txt"):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(1.5)
         
+        raw_html = driver.page_source
+        scraped_links = scrape_url(raw_html)
         # Execute an optimized JS injector loop to drop junk components directly inside the browser DOM
         # This dramatically accelerates background memory processing
         print("✂️ Stripping boilerplate navigation elements, scripts, and footers...")
@@ -75,7 +86,7 @@ def scrape_any_site_selenium(url, output_file="ai_input_data.txt"):
         print("🧠 Transforming layout structures into clean text fields for the AI Model...")
         ai_ready_text = clean_and_convert_to_markdown(raw_html)
 
-        return ai_ready_text
+        return ai_ready_text, scraped_links
         # if ai_ready_text:
         #     with open(output_file, "w", encoding="utf-8") as f:
         #         f.write(ai_ready_text)

@@ -1,10 +1,13 @@
 import os
 from dotenv import load_dotenv
 from typing import Literal
+from gradio import Markdown
+from networkx import display
 from openai import OpenAI
 from typing import Literal
 import json
 from practice.reusable.webscrapper import scrape_any_site_selenium
+from IPython.display import Markdown, display, update_display
 
 load_dotenv()
 
@@ -30,8 +33,8 @@ You should respond in JSON as in this example:
 }
 """
 
-def found_releavent_links(url):
-    print("founding releavent links for the url: ", url)
+def found_relevant_links(url):
+    print("founding relevant links for the url: ", url)
     ai_ready_text, scraped_links = scrape_any_site_selenium(url)
     user_prompt = f"""
     Here is the list of links on the website {url} -
@@ -52,6 +55,11 @@ def found_releavent_links(url):
         ]
     )
     result = response.choices[0].message.content
+    result = result.strip()
+
+    if result.startswith("```"):
+        result = result.removeprefix("```json").removeprefix("```")
+        result = result.removesuffix("```").strip()
     links = json.loads(result)
     print(f"Found {len(links['links'])} relevant links")
     return links
@@ -59,13 +67,69 @@ def found_releavent_links(url):
 
 def fetch_page_and_all_relevant_links(url):
     contents = scrape_any_site_selenium(url)[0]
-    relevant_links = found_releavent_links(url)
+    relevant_links = found_relevant_links(url)
     result = f"## Landing Page:\n\n{contents}\n## Relevant Links:\n"
     for link in relevant_links['links']:
         result += f"\n\n### Link: {link['type']}\n"
         result += scrape_any_site_selenium(link["url"])[0]
     return result
 
+def get_brochure_user_prompt(company_name, url):
+    user_prompt = f"""
+        You are looking at a company called: {company_name}
+        Here are the contents of its landing page and other relevant pages;
+        use this information to build a short brochure of the company in markdown without code blocks.\n\n
+    """
+    user_prompt += fetch_page_and_all_relevant_links(url)
+    user_prompt = user_prompt[:10_000] # Truncate if more than 10,000 characters
+    return user_prompt
+
+BROCHURE_SYSTEM_PROMPT = """
+    You are an assistant that analyzes the contents of several relevant pages from a company website
+    and creates a short, humorous, entertaining, witty brochure about the company for prospective customers, investors and recruits.
+    Respond in markdown without code blocks.
+    Include details of company culture, customers and careers/jobs if you have the information.
+"""
+
+def create_brochure(company_name, url):
+    
+    ollama = OpenAI(base_url=AI_BASE_URL, api_key=API_KEY)
+
+    response = ollama.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": BROCHURE_SYSTEM_PROMPT},
+            {"role": "user", "content": get_brochure_user_prompt(company_name, url)}
+        ],
+    )
+    result = response.choices[0].message.content
+    print(result)
+
+
+def stream_brochure(company_name, url):
+    
+    ollama = OpenAI(base_url=AI_BASE_URL, api_key=API_KEY)
+
+    response = ollama.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": BROCHURE_SYSTEM_PROMPT},
+            {"role": "user", "content": get_brochure_user_prompt(company_name, url)}
+        ],
+        stream=True
+    )
+
+    response_text = ""
+    for chunk in response:
+        content = chunk.choices[0].delta.content or ""
+        response_text += content
+        print(content, end="", flush=True)
+
+
+
+
 if __name__ == "__main__":
     url = input("Enter the URL of the website to scrape: ")
-    print(found_releavent_links(url))
+    company_name = input("Enter the name of the company: ")
+    stream_brochure(company_name, url)
+    # found_relevant_links(url)
